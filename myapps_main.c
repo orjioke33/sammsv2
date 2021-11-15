@@ -3,6 +3,6 @@
 
 int myapps_main(int argc, char *argv[])
 {
-  printf("Hello Spresense!!!\n");
+  printf("Hello Spresense!!!!\n");
   return 0;
 }
