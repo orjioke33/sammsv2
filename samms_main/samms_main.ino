@@ -1,5 +1,7 @@
+// TO DO: ERROR CHECKING in ALL THE FILES
 // System Headers
 #include <MP.h>
+#include "samms_defines.h"
 
 // Audio Headers
 #include <Audio.h>
@@ -14,8 +16,6 @@
 // Filter Variables
 audioClassStruct_t * audioStruct = get_audio_class_struct();
 
-const int subcore = 1;
-
 void setup() {
   // Filter Setup - TO DO Cleanup
   int ret;
@@ -26,22 +26,13 @@ void setup() {
 
   // AUDIO & FILTERING
   Serial.println("Init Audio Library");
-  audioStruct->audio->begin();
-  Serial.println("Init Audio Recorder");
-  // Select input device as AMIC
-  audioStruct->audio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC);
-  set_audio_channel(audioStruct, AS_CHANNEL_STEREO);
-  audioStruct->audio->initRecorder(AS_CODECTYPE_PCM, "/mnt/sd0/BIN", AS_SAMPLINGRATE_48000, audioStruct->channel);
+  int x = init_audio_struct_and_record (audioStruct);
 
-  // Launch SubCore
-  ret = MP.begin(subcore);
+  // Launch SubCore if recording works
+  ret = MP.begin(SUBCORE1);
   if (ret < 0) {
     printf("MP.begin error = %d\n", ret);
   }
-
-  Serial.println("Rec start!");
-  audioStruct->audio->startRecorder();
-
 }
 
 void loop() {
@@ -69,7 +60,7 @@ void loop() {
     capture->buff   = buffer;
     capture->sample = buffer_sample / AS_CHANNEL_STEREO;
     capture->chnum  = AS_CHANNEL_STEREO;
-    MP.Send(sndid, &capture, subcore);
+    MP.Send(sndid, &capture, SUBCORE1);
     Serial.println("Sending Data to Subcore1");
   } else {
     usleep(1);

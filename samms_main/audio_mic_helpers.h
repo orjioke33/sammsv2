@@ -11,5 +11,6 @@ typedef struct audioClassStruct_t {
 
 audioClassStruct_t * get_audio_class_struct (void);
 void set_audio_channel (audioClassStruct_t * _audioStruct, int mic_channel_num);
+err_t init_audio_struct_and_record (audioClassStruct_t * _audioStruct);
 
 #endif // _AUDIO_MIC_HELPERS_H    // Put this line at the end of your file.
