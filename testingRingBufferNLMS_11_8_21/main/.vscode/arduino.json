@@ -1,5 +1,0 @@
-{
-    "configuration": "Core=Sub1,Memory=768,Debug=Disabled,UploadSpeed=115200",
-    "board": "SPRESENSE:spresense:spresense",
-    "sketch": "..\\subcore\\SubCore.ino"
-}
