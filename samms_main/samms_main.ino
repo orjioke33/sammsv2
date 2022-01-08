@@ -8,10 +8,11 @@
 #include "nlms_filter_helpers.h"
 #include "audio_mic_helpers.h"
 
-// I2C & Accelerometer Headers
+// I2C Libraries
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_ADXL343.h>
+#include <Adafruit_ADXL343.h> // Accelerometer
+#include <Adafruit_DRV2605.h> // Haptic driver
 
 // Audio & Filter Variables
 audioClassStruct_t * audioStruct = get_audio_class_struct();
@@ -19,6 +20,7 @@ filterCapture_t * capture = get_filter_capture_struct();
 
 // Accelerometer Variables
 Adafruit_ADXL343 accel = Adafruit_ADXL343(1);
+Adafruit_DRV2605 hapticDriver;
 
 void setup() {
   // Open serial for debugging
@@ -39,14 +41,21 @@ void setup() {
     Serial.println("Subcore launched successfully.");
   }
 
-  // ACCELEROMETER
-  // Initialize the accelerometer
-  if(!accel.begin())
-  {
+  // I2C devices
+  // accelerometer, i2c0 bus
+  if(!accel.begin()) {
     Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
     while(1);
   } else {
     Serial.println("ADXL343 began successfully.");
+  }
+
+  // haptic driver, i2c0 bus
+  if (!hapticDriver.begin()) {
+    Serial.println("Oops, no DRV2605L detected ... Check your wiring!");
+    while(1);
+  } else {
+    Serial.println("DRV2605L began successfully.");
   }
 }
 
