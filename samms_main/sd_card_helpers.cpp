@@ -30,6 +30,8 @@ static int read_spl_value_from_sd_card() {
 
     // close the file
     _splFile.close();
+  } else {
+    printf("\nCould not open %s. Please check sd card!\n", SPL_FILE_NAME);
   }
 
   return bytesRead;
@@ -44,10 +46,11 @@ char * get_spl_file_buffer() {
   return _splFileBuffer;
 }
 
+// Convert the value into an integer
 int get_integer_spl_value_from_buffer() {
   int spl = -1;
   
-  // No errors
+  // Only convert the value if there are 0 errors
   if (read_spl_value_from_sd_card() != -1) {
     spl = atoi(_splFileBuffer);
   }

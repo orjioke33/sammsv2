@@ -47,7 +47,11 @@ void setup() {
     while(1);
   } else {
     splThreshold = get_integer_spl_value_from_buffer();
-    Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
+    if (splThreshold >= 0) {
+      Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
+    } else {
+      Serial.print("Negative SPL value set!! Please check txt file on SD card.");
+    }
   }
 }
 
