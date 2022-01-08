@@ -17,6 +17,9 @@
 audioClassStruct_t * audioStruct = get_audio_class_struct();
 filterCapture_t * capture = get_filter_capture_struct();
 
+// Accelerometer Variables
+Adafruit_ADXL343 accel = Adafruit_ADXL343(1);
+
 void setup() {
   // Open serial for debugging
   // To Do: function to print to serial from anywhere in code base
@@ -31,6 +34,19 @@ void setup() {
   int ret = MP.begin(SUBCORE1);
   if (ret < 0) {
     printf("MP.begin error = %d\n", ret);
+    while(1);
+  } else {
+    Serial.println("Subcore launched successfully.");
+  }
+
+  // ACCELEROMETER
+  // Initialize the accelerometer
+  if(!accel.begin())
+  {
+    Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
+    while(1);
+  } else {
+    Serial.println("ADXL343 began successfully.");
   }
 }
 
