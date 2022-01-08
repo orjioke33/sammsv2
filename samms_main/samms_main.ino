@@ -9,13 +9,21 @@
 #include "audio_mic_helpers.h"
 
 // I2C & Accelerometer Headers
+// To Do: Move accelerometer headers to separate files
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL343.h>
 
+// SD Card Headers
+#include "sd_card_helpers.h"
+
 // Audio & Filter Variables
 audioClassStruct_t * audioStruct = get_audio_class_struct();
 filterCapture_t * capture = get_filter_capture_struct();
+
+// SD Card Variables
+SDClass * sdCard = get_sd_card_object();
+int splThreshold = 0;
 
 void setup() {
   // Open serial for debugging
@@ -31,6 +39,15 @@ void setup() {
   int ret = MP.begin(SUBCORE1);
   if (ret < 0) {
     printf("MP.begin error = %d\n", ret);
+  }
+
+  // SDCard initialization
+  if (!sdCard->begin()) {
+    Serial.println("SD card not mounted. Cannot continue.");
+    while(1);
+  } else {
+    splThreshold = get_integer_spl_value_from_buffer();
+    Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
   }
 }
 
