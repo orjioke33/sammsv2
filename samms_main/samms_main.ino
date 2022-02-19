@@ -49,6 +49,7 @@ void setup() {
     while(1);
   } else {
     Serial.println("Subcore launched successfully.");
+    MP.RecvTimeout(MP_RECV_POLLING); // non blocking polling
   }
 
   // I2C devices
