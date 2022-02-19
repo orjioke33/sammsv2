@@ -32,8 +32,8 @@ Adafruit_DRV2605 hapticDriver;
 
 void setup() {
   // Open serial for debugging
-  // To Do: function to print to serial from anywhere in code base
-  // To Do: print core number with Serial prints
+  // TODO: function to print to serial from anywhere in code base
+  // TODO: print core number with Serial prints
   Serial.begin(115200);
   while (!Serial);
 
@@ -42,7 +42,8 @@ void setup() {
   int x = init_audio_struct_and_record (audioStruct);
 
   // Launch SubCore if recording works
-  int ret = MP.begin(SUBCORE1);
+  // TODO: send and ACK for subcores
+  int ret = MP.begin(SUBCORE_AUDIO_PROCESSING);
   if (ret < 0) {
     printf("MP.begin error = %d\n", ret);
     while(1);
@@ -52,6 +53,7 @@ void setup() {
 
   // I2C devices
   // accelerometer, i2c0 bus
+  // TODO REMOVE WHILE LOOP AND ERROR GRACEFULLY
   if(!accel.begin()) {
     Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
     while(1);
@@ -60,6 +62,7 @@ void setup() {
   }
 
   // haptic driver, i2c0 bus
+  // TODO REMOVE WHILE LOOP AND ERROR GRACEFULLY
   if (!hapticDriver.begin()) {
     Serial.println("Oops, no DRV2605L detected ... Check your wiring!");
     while(1);
@@ -90,20 +93,52 @@ void setup() {
 
 void loop() {
   err_t err;
+  int retMP = -1;
+  int8_t recvIdMP;
+  void * recvAddrMP;
+  static float splValue = -1;
+  bool dataComing = false;
+  bool micThresholdHit = false;
 
-  // Read frames to the recorder
+  // TODO - error checking for MP calls
+  // Check if there's an SPL value update
+  retMP = MP.Recv(&recvIdMP, recvAddrMP, SUBCORE_AUDIO_PROCESSING);
+  printf("\n*****retMP: %d****\n", retMP); // debug
+  if (retMP >= 0) {
+    // Grab SPL value
+    if (recvIdMP == MP_RECV_ID_AUDIO_PROCESSING) {
+      splValue = *(float*)recvAddrMP;
+      // TODO - write SPL value to buffer and then write that buffer to the SD card
+              // as a spreadsheet
+      if ((splValue < splThreshold) && (splValue > 0)) {
+        hapticDriver.go(); // buzz!
+      }
+    }
+  }
+
+  // Check if we should turn on the microphones
+  retMP = MP.Recv(&recvIdMP, recvAddrMP, SUBCORE_ACCEL_PROCESSING);
+  printf("\n*****retMP: %d****\n", retMP); // debug
+  if (retMP >= 0) {
+    // See if we should start sending mic info for audio processing
+    if (recvIdMP == MP_RECV_ID_ACCEL_PROCESSING) {
+        micThresholdHit = *(bool*)recvAddrMP;
+    }
+  }
+
+  // Read audio frames to the recorder
   err = read_frames_to_recorder(audioStruct);
 
   // Update the capture filter
   if ((audioStruct->read_size != 0) && (audioStruct->read_size == BUFFER_SIZE)) {
     update_capture_filter (capture, audioStruct);
-    MP.Send(AUDIO_MP_SEND_ID, capture, SUBCORE1); // Add error checking
-    // Serial.println("Sending Data to Subcore1"); // DEBUG
+    if (micThresholdHit) { // Send the mic data for processing
+      MP.Send(MP_SEND_ID_AUDIO_PROCESSING, capture, SUBCORE_AUDIO_PROCESSING); // Add error checking
+      // Serial.println("Sending Data to Subcore1"); // DEBUG
+    }
   } else {
     usleep(1);
   }
 
-  hapticDriver.go(); // buzz!
   delay(1000);
-
 }
