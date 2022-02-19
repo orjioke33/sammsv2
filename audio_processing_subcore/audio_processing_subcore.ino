@@ -150,6 +150,21 @@ void loop()
     result.sample = BLOCKSIZE;
 
   }
+
+  // Testing Core to Core talk
+  // Send an splValue every second
+  static int count = 0;
+  static float splValue = 73.2;
+  MP.Send(MP_SEND_ID_AUDIO_PROCESSING, splValue);
+  delay(1000);
+  count++;
+
+  if (count % 5 == 0) {
+    splValue -= count;
+    if (splValue <= 0) {
+      splValue = 73.2;
+    }
+  }
 }
 
 

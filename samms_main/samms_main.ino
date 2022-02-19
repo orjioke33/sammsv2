@@ -109,6 +109,7 @@ void loop() {
     // Grab SPL value
     if (recvIdMP == MP_RECV_ID_AUDIO_PROCESSING) {
       splValue = *(float*)recvAddrMP;
+      printf("\n Received spl value: %.2f", splValue);
       // TODO - write SPL value to buffer and then write that buffer to the SD card
               // as a spreadsheet
       if ((splValue < splThreshold) && (splValue > 0)) {
@@ -134,6 +135,7 @@ void loop() {
   if ((audioStruct->read_size != 0) && (audioStruct->read_size == BUFFER_SIZE)) {
     update_capture_filter (capture, audioStruct);
     if (micThresholdHit) { // Send the mic data for processing
+      printf("\nMic threshold hit!!");
       MP.Send(MP_SEND_ID_AUDIO_PROCESSING, capture, SUBCORE_AUDIO_PROCESSING); // Add error checking
       // Serial.println("Sending Data to Subcore1"); // DEBUG
     }
