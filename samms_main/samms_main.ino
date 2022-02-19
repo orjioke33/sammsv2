@@ -12,7 +12,8 @@
 // To Do: Move accelerometer headers to separate files
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_ADXL343.h>
+#include <Adafruit_ADXL343.h> // Accelerometer
+#include <Adafruit_DRV2605.h> // Haptic driver
 
 // SD Card Headers
 #include "sd_card_helpers.h"
@@ -25,9 +26,14 @@ filterCapture_t * capture = get_filter_capture_struct();
 SDClass * sdCard = get_sd_card_object();
 int splThreshold = 0;
 
+// Accelerometer Variables
+Adafruit_ADXL343 accel = Adafruit_ADXL343(1);
+Adafruit_DRV2605 hapticDriver;
+
 void setup() {
   // Open serial for debugging
   // To Do: function to print to serial from anywhere in code base
+  // To Do: print core number with Serial prints
   Serial.begin(115200);
   while (!Serial);
 
@@ -39,6 +45,33 @@ void setup() {
   int ret = MP.begin(SUBCORE1);
   if (ret < 0) {
     printf("MP.begin error = %d\n", ret);
+    while(1);
+  } else {
+    Serial.println("Subcore launched successfully.");
+  }
+
+  // I2C devices
+  // accelerometer, i2c0 bus
+  if(!accel.begin()) {
+    Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
+    while(1);
+  } else {
+    Serial.println("ADXL343 began successfully.");
+  }
+
+  // haptic driver, i2c0 bus
+  if (!hapticDriver.begin()) {
+    Serial.println("Oops, no DRV2605L detected ... Check your wiring!");
+    while(1);
+  } else {
+    Serial.println("DRV2605L began successfully.");
+    hapticDriver.selectLibrary(1);
+    // I2C trigger by sending 'go' command (default)
+    //internal trigger when sending GO command
+    hapticDriver.setMode(DRV2605_MODE_INTTRIG);
+    // set the effect to play
+    hapticDriver.setWaveform(0, 48); // Buzz 80%
+    hapticDriver.setWaveform(1, 0);  // end waveform
   }
 
   // SDCard initialization
@@ -69,5 +102,8 @@ void loop() {
   } else {
     usleep(1);
   }
+
+  hapticDriver.go(); // buzz!
+  delay(1000);
 
 }
