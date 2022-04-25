@@ -9,7 +9,6 @@
 #include "audio_mic_helpers.h"
 
 // I2C & Accelerometer Headers
-// To Do: Move accelerometer headers to separate files
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL343.h> // Accelerometer
@@ -18,130 +17,108 @@
 // SD Card Headers
 #include "sd_card_helpers.h"
 
-// Audio & Filter Variables
-audioClassStruct_t * audioStruct = get_audio_class_struct();
-filterCapture_t * capture = get_filter_capture_struct();
+#ifdef SUBCORE
+#error "Core selection is wrong!!"
+#endif
 
 // SD Card Variables
 SDClass * sdCard = get_sd_card_object();
-int splThreshold = 0;
+int splThreshold = 70;
 
-// Accelerometer Variables
-Adafruit_ADXL343 accel = Adafruit_ADXL343(1);
+// I2C Variables
 Adafruit_DRV2605 hapticDriver;
+
+// Global MP vars
+int ret;
+uint32_t rcvdata;
+int8_t rcvid;
+int micData = 30;
 
 void setup() {
   // Open serial for debugging
-  // TODO: function to print to serial from anywhere in code base
-  // TODO: print core number with Serial prints
   Serial.begin(115200);
   while (!Serial);
+  int subid, ret;
 
-  // AUDIO & FILTERING
-  Serial.println("Init Audio Library");
-  int x = init_audio_struct_and_record (audioStruct);
-
-  // Launch SubCore if recording works
-  // TODO: send and ACK for subcores
-  int ret = MP.begin(SUBCORE_AUDIO_PROCESSING);
-  if (ret < 0) {
-    printf("MP.begin error = %d\n", ret);
-    while(1);
-  } else {
-    Serial.println("Subcore launched successfully.");
-    MP.RecvTimeout(MP_RECV_POLLING); // non blocking polling
-  }
-
-  // I2C devices
-  // accelerometer, i2c0 bus
-  // TODO REMOVE WHILE LOOP AND ERROR GRACEFULLY
-  if(!accel.begin()) {
-    Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
-    while(1);
-  } else {
-    Serial.println("ADXL343 began successfully.");
+  // Start all subscores
+  for (subid = 1; subid <= 3; subid++) {
+    ret = MP.begin(subid);
+    if (ret < 0) {
+      MPLog("MP.begin(%d) error = %d\n", subid, ret);
+      while(1);
+    } else {
+      Serial.print("MAIN CORE: Began subcore "); Serial.print(subid); Serial.print(" successfully.\n");
+    }
   }
 
   // haptic driver, i2c0 bus
-  // TODO REMOVE WHILE LOOP AND ERROR GRACEFULLY
   if (!hapticDriver.begin()) {
-    Serial.println("Oops, no DRV2605L detected ... Check your wiring!");
-    while(1);
+    Serial.println("MAIN CORE: Oops, no DRV2605L detected ... Check your wiring!");
+    // while(1);
   } else {
-    Serial.println("DRV2605L began successfully.");
+    Serial.println("MAIN CORE: DRV2605L began successfully.");
     hapticDriver.selectLibrary(1);
-    // I2C trigger by sending 'go' command (default)
-    //internal trigger when sending GO command
-    hapticDriver.setMode(DRV2605_MODE_INTTRIG);
-    // set the effect to play
+    hapticDriver.setMode(DRV2605_MODE_INTTRIG); //internal trigger when sending GO command
     hapticDriver.setWaveform(0, 48); // Buzz 80%
     hapticDriver.setWaveform(1, 0);  // end waveform
   }
 
   // SDCard initialization
   if (!sdCard->begin()) {
-    Serial.println("SD card not mounted. Cannot continue.");
-    while(1);
-  } else {
-    splThreshold = get_integer_spl_value_from_buffer();
-    if (splThreshold >= 0) {
-      Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
-    } else {
-      Serial.print("Negative SPL value set!! Please check txt file on SD card.");
-    }
+    Serial.println("MAIN CORE: SD card not mounted. Cannot continue.");
+    // while(1);
+  } 
+//  else {
+//    splThreshold = get_integer_spl_value_from_buffer();
+//    if (splThreshold >= 0) {
+//      Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
+//    } else {
+//      Serial.print("Negative SPL value set!! Please check txt file on SD card.");
+//    }
+//  }
+
+  // Send SP threshold to audio processing core
+  Serial.print("MAIN CORE: Send splThreshold: "); Serial.print(splThreshold); Serial.print("\n");
+
+  ret = MP.Send(MP_SEND_ID_MAIN_CORE, splThreshold, SUBCORE_AUDIO_PROCESSING); // sendid, data, subcore
+  if (ret < 0) {
+    printf("MAIN CORE: MP.Send error splThreshold to SUBCORE_AUDIO_PROCESSING = %d\n", ret);
   }
+
+  // Wait 1 second to receive ack
+  // MP.RecvTimeout(1000);
 }
 
 void loop() {
-  err_t err;
-  int retMP = -1;
-  int8_t recvIdMP;
-  void * recvAddrMP;
-  static float splValue = -1;
-  bool dataComing = false;
-  bool micThresholdHit = false;
 
-  // TODO - error checking for MP calls
-  // Check if there's an SPL value update
-  retMP = MP.Recv(&recvIdMP, recvAddrMP, SUBCORE_AUDIO_PROCESSING);
-  printf("\n*****retMP: %d****\n", retMP); // debug
-  if (retMP >= 0) {
-    // Grab SPL value
-    if (recvIdMP == MP_RECV_ID_AUDIO_PROCESSING) {
-      splValue = *(float*)recvAddrMP;
-      printf("\n Received spl value: %.2f", splValue);
-      // TODO - write SPL value to buffer and then write that buffer to the SD card
-              // as a spreadsheet
-      if ((splValue < splThreshold) && (splValue > 0)) {
-        hapticDriver.go(); // buzz!
-      }
-    }
-  }
-
-  // Check if we should turn on the microphones
-  retMP = MP.Recv(&recvIdMP, recvAddrMP, SUBCORE_ACCEL_PROCESSING);
-  printf("\n*****retMP: %d****\n", retMP); // debug
-  if (retMP >= 0) {
-    // See if we should start sending mic info for audio processing
-    if (recvIdMP == MP_RECV_ID_ACCEL_PROCESSING) {
-        micThresholdHit = *(bool*)recvAddrMP;
-    }
-  }
-
-  // Read audio frames to the recorder
-  err = read_frames_to_recorder(audioStruct);
-
-  // Update the capture filter
-  if ((audioStruct->read_size != 0) && (audioStruct->read_size == BUFFER_SIZE)) {
-    update_capture_filter (capture, audioStruct);
-    if (micThresholdHit) { // Send the mic data for processing
-      printf("\nMic threshold hit!!");
-      MP.Send(MP_SEND_ID_AUDIO_PROCESSING, capture, SUBCORE_AUDIO_PROCESSING); // Add error checking
-      // Serial.println("Sending Data to Subcore1"); // DEBUG
-    }
+  // Check if we can start the mics
+  MP.RecvTimeout(1000); // 1 second timeout
+  ret = MP.Recv(&rcvid, &rcvdata, SUBCORE_ACCEL_PROCESSING);
+  if (ret < 0) {
+    Serial.print("MAIN CORE: MP.Recv error = "); Serial.print(ret); Serial.print("\n");
   } else {
-    usleep(1);
+    Serial.print("MAIN CORE: Received start mic flag: "); Serial.print(rcvdata); Serial.print("\n");
   }
 
-  delay(1000);
+  // TODO: Turn on microphones
+  if (rcvdata == 1 && rcvid == MP_SEND_ID_ACCEL_PROCESSING) { // Microphones can start
+    // TODO: Collect microphone data
+    // TODO: Send mic data to SUBCORE_AUDIO_PROCESSING
+    ret = MP.Send(MP_SEND_ID_MAIN_CORE, micData, SUBCORE_AUDIO_PROCESSING); // sendid, data, subcore
+    if (ret < 0) {
+      printf("MAIN CORE: MP.Send error micData to SUBCORE_AUDIO_PROCESSING = %d\n", ret);
+    }
+  }
+
+  ret = MP.Recv(&rcvid, &rcvdata, SUBCORE_AUDIO_PROCESSING);
+  if (ret < 0) {
+    Serial.print("MAIN CORE: MP.Recv error = "); Serial.print(ret); Serial.print("\n");
+  } else {
+    Serial.print("MAIN CORE: spl value: "); Serial.print(rcvdata); Serial.print("\n");
+    if (rcvdata < 50) {
+      Serial.println("MAIN CORE: BUZZ HAPTIC FEED BACK. UNDER 50 db!!!");
+    }
+  }
+
+  delay(500);
 }

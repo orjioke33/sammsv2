@@ -45,6 +45,10 @@
 
 #define FFTLEN 1024
 
+#if (SUBCORE != SUBCORE_AUDIO_PROCESSING)
+#error "Core selection wrong!!"
+#endif
+
 const int g_channel = 2;
 
 /* Ring buffer */
@@ -85,100 +89,107 @@ struct Result {
   int sample;
 };
 
+int      ret;
+int8_t   recvId;
+int8_t   sendId;
+int32_t  msgdata;
+int splThreshold = -1;
+int spl = 96;
 
 void setup()
 {
-  int ret = 0;
-
-  /* Initialize MP library */
-  ret = MP.begin();
-  if (ret < 0)
-  {
-    errorLoop(2);
+  Serial.begin(115200);
+  while (!Serial);
+  
+  int ret = MP.begin();
+  if (ret < 0) {
+   Serial.print("SUBCORE 3: MP.begin error = "); Serial.print(ret); Serial.print("\n");
+    while(1);
+  } else {
+    Serial.println("SUBCORE 3: Subcore AUDIO_PROCESSING launched successfully.");
   }
+  
   /* receive with non-blocking */
-  MP.RecvTimeout(MP_RECV_POLLING);
+  // MP.RecvTimeout(MP_RECV_POLLING);
+
+  MP.RecvTimeout(1000);
+  ret = MP.Recv(&recvId, &msgdata);
+  if (ret >= 0) 
+  {
+    Serial.print("SUBCORE 3: Recvd splThreshold MAIN CORE: "); Serial.print(msgdata); Serial.print("\n");
+    splThreshold = msgdata;
+  } else {
+    Serial.print("SUBCORE 3: MP.Recv error = "); Serial.print(ret); Serial.print("\n");
+  }
+  
 
   arm_lms_norm_init_f32(&lmsNormInstance, NUMTAPS, nlmsCoeffs, nlmsStateF32, MU, BLOCKSIZE);
-  printf("Subcore %d Initialized \n",1);
+  // printf("Subcore %d Initialized \n",1);
 }
 
 void loop()
 {
-  int      ret;
-  int8_t   recvId;
-  int8_t   sendId;
   Capture *capture;
   Result result;
 
   /* Receive PCM captured buffer from MainCore */
-  ret = MP.Recv(&recvId, &capture);
+  // ret = MP.Recv(&recvId, &capture);
+  // Receive mic data from main core
+  ret = MP.Recv(&recvId, &msgdata);
   if (ret >= 0) 
   {
-    printf("Message Received\n");
-    if (capture->chnum == 1) 
-    {
-      /* the faster optimization */
-      ringbuf[0].put((q15_t*)capture->buff, capture->sample);
-    } else {
-      int i;
-      for (i = 0; i < capture->chnum; i++) 
-      {
-        ringbuf[i].put((q15_t*)capture->buff, capture->sample, capture->chnum, i);
-      }
-    }
+//    printf("Message Received\n");
+//    if (capture->chnum == 1) 
+//    {
+//      /* the faster optimization */
+//      ringbuf[0].put((q15_t*)capture->buff, capture->sample);
+//    } else {
+//      int i;
+//      for (i = 0; i < capture->chnum; i++) 
+//      {
+//        ringbuf[i].put((q15_t*)capture->buff, capture->sample, capture->chnum, i);
+//      }
+//    }
+    Serial.print("SUBCORE 3: Recvd mic data from MAIN CORE: "); Serial.print(msgdata); Serial.print("\n");
+  } else {
+    Serial.print("SUBCORE 3: MP.Recv error = "); Serial.print(ret); Serial.print("\n");
   }
 
-  while (ringbuf[0].stored() >= FFTLEN)
-  {
-    // Pull data out of the ring buffer
-    ringbuf[0].get(pSrc_left, FFTLEN);
-    ringbuf[1].get(pSrc_right, FFTLEN);
+//  while (ringbuf[0].stored() >= FFTLEN)
+//  {
+//    // Pull data out of the ring buffer
+//    ringbuf[0].get(pSrc_left, FFTLEN);
+//    ringbuf[1].get(pSrc_right, FFTLEN);
+//
+//    // Create sum and difference of signals
+//    for (int i = 0; i < BLOCKSIZE; i++)
+//    {
+//      pSum[i] = pSrc_left[i] + pSrc_right[i];
+//      pDiff[i] = pSrc_left[i] - pSrc_right[i];
+//    }
+//    
+//    // Perform nLMS filtering
+//    arm_lms_norm_f32(&lmsNormInstance, pSum, pDiff, convergedSignal, err_signal, BLOCKSIZE);
+//    
+//    printf("filtering Occuring\n");
+//    result.buffer = err_signal;
+//    result.sample = BLOCKSIZE;
+//
+//  }
 
-    // Create sum and difference of signals
-    for (int i = 0; i < BLOCKSIZE; i++)
-    {
-      pSum[i] = pSrc_left[i] + pSrc_right[i];
-      pDiff[i] = pSrc_left[i] - pSrc_right[i];
-    }
-    
-    // Perform nLMS filtering
-    arm_lms_norm_f32(&lmsNormInstance, pSum, pDiff, convergedSignal, err_signal, BLOCKSIZE);
-    
-    printf("filtering Occuring\n");
-    result.buffer = err_signal;
-    result.sample = BLOCKSIZE;
-
+  // TODO: Calculate spl value
+  // Send SPL value to main core
+  ret = MP.Send(MP_SEND_ID_AUDIO_PROCESSING, spl);
+  if (ret < 0) {
+    printf("SUBCORE 3: MP.Send error splThreshold to MAIN CORE = %d\n", ret);
   }
 
-  // Testing Core to Core talk
-  // Send an splValue every second
-  static int count = 0;
-  static float splValue = 73.2;
-  MP.Send(MP_SEND_ID_AUDIO_PROCESSING, splValue);
-  delay(1000);
-  count++;
-
-  if (count % 5 == 0) {
-    splValue -= count;
-    if (splValue <= 0) {
-      splValue = 73.2;
-    }
+  // Toggle for testing
+  if (spl < 90) {
+    spl+=5;
+  } else {
+    spl = 20;
   }
-}
 
-
-void errorLoop(int num)
-{
-  int i;
-
-  while (1) {
-    for (i = 0; i < num; i++) {
-      ledOn(LED0);
-      delay(300);
-      ledOff(LED0);
-      delay(300);
-    }
-    delay(1000);
-  }
+  delay(500);
 }
