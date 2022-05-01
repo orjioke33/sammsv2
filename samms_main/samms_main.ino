@@ -66,16 +66,17 @@ void setup() {
   // SDCard initialization
   if (!sdCard->begin()) {
     Serial.println("MAIN CORE: SD card not mounted. Cannot continue.");
-    // while(1);
+     while(1);
   } 
-//  else {
-//    splThreshold = get_integer_spl_value_from_buffer();
-//    if (splThreshold >= 0) {
-//      Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
-//    } else {
-//      Serial.print("Negative SPL value set!! Please check txt file on SD card.");
-//    }
-//  }
+  else {
+    splThreshold = get_integer_spl_value_from_buffer();
+    Serial.print("SD Card Contents: \""); Serial.print(get_spl_file_buffer()); Serial.print("\"\n");
+    if (splThreshold >= 0) {
+      Serial.print("SPL threshold set: "); Serial.print(splThreshold); Serial.print(" dB\n");
+    } else {
+      Serial.print("Negative SPL value set!! Please check txt file on SD card.");
+    }
+  }
 
   // Send SP threshold to audio processing core
   Serial.print("MAIN CORE: Send splThreshold: "); Serial.print(splThreshold); Serial.print("\n");
