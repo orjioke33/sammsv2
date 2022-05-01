@@ -8,7 +8,7 @@
 // Variables
 SDClass _sdCard;
 File _splFile;
-char _splFileBuffer[8];
+char _splFileBuffer[64];
 
 // Private Functions
 // Read the spl value from the sd card
