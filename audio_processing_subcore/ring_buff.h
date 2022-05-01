@@ -25,8 +25,8 @@
 #endif
 
 #include <arm_math.h>
-#ifndef _RINGBUFF_H_
-#define _RINGBUFF_H_
+#ifndef _RING_BUFF_H_
+#define _RING_BUFF_H_
 
 class RingBuff
 {

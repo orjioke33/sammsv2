@@ -8,10 +8,9 @@
 
 // Subcore Message IDs
 // Send is even, Recv is odd
-#define MP_SEND_ID_MAIN_CORE                    0
-#define MP_SEND_ID_AUDIO_PROCESSING             2
-#define MP_SEND_ID_ACCEL                        4
-#define MP_SEND_ID_ACCEL_PROCESSING             6
+#define MP_SEND_ID_AUDIO_PROCESSING             0
+#define MP_SEND_ID_ACCEL                        2
+#define MP_SEND_ID_ACCEL_PROCESSING             4
 
 #define MP_RECV_ID_AUDIO_PROCESSING             1
 #define MP_RECV_ID_ACCEL                        3
