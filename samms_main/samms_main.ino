@@ -11,8 +11,11 @@
 // I2C & Accelerometer Headers
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_ADXL343.h> // Accelerometer
 #include <Adafruit_DRV2605.h> // Haptic driver
+
+// GNSS / GPS
+#include <GNSS.h>
+#include "gnss_helpers.h"
 
 // SD Card Headers
 #include "sd_card_helpers.h"
@@ -50,6 +53,10 @@ void setup() {
       Serial.print("MAIN CORE: Began subcore "); Serial.print(subid); Serial.print(" successfully.\n");
     }
   }
+
+  // Wait HW initialization done. Setup gnss for clock
+  sleep(3);
+  setup_gnss();
 
   // haptic driver, i2c0 bus
   if (!hapticDriver.begin()) {
@@ -120,6 +127,12 @@ void loop() {
       Serial.println("MAIN CORE: BUZZ HAPTIC FEED BACK. UNDER 50 db!!!");
     }
   }
+
+  // TODO: Only update gnss once we get a valid time stamp
+  // And then update it once 2 hours have elapsed. Just need to
+  // update it every 2 hours for a valid time stamp
+  update_gnss();
+  restart_gnss_on_timeout();
 
   delay(500);
 }
